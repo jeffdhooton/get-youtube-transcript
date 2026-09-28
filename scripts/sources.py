@@ -168,6 +168,19 @@ def choose_audio(info, language):
     return max(formats, key=lambda f: (f.get("abr") or f.get("tbr") or 0))
 
 
+def choose_video(info):
+    # One direct video stream; no external downloader, stream merging or audio
+    # language selection is needed to inspect pixels. Bound download resolution.
+    formats = [f for f in info.get("formats", []) if f.get("vcodec") not in (None, "none")
+               and f.get("url") and f.get("protocol") in ("https", "http")
+               and not f.get("has_drm") and 0 < (f.get("height") or 0) <= 1080
+               and f.get("ext") in ("mp4", "webm")]
+    if not formats:
+        raise CaptureError("No usable direct video format at or below 1080p")
+    return max(formats, key=lambda f: (f.get("height") or 0,
+                                      f.get("acodec") == "none", f.get("tbr") or 0))
+
+
 class Sources:
     def __init__(self):
         runtime = next((name for name in ("deno", "node") if shutil.which(name)), None)
@@ -253,6 +266,30 @@ class Sources:
 
     def transcribe(self, path, language):
         return transcribe_local(path, language)
+
+    def download_video(self, directory):
+        fmt = choose_video(self.info)
+        size = fmt.get("filesize") or fmt.get("filesize_approx") or 0
+        if shutil.disk_usage(directory).free < max(2_000_000_000, size * 2):
+            raise CaptureError("Insufficient free disk for the temporary video")
+        progress("Downloading video for selected screenshots (temporary, at most 1080p)…")
+        self.ydl.params.update({"outtmpl": {"default": str(directory / "video.%(ext)s")},
+                               "overwrites": False, "continuedl": False})
+        selected = {**self.info, **fmt}
+        selected.pop("requested_formats", None)
+        selected.pop("requested_downloads", None)
+        try:
+            self.ydl.process_info(selected)
+        except RequestStopped as exc:
+            raise AccessDenied(str(exc)) from None
+        except RequestFailed as exc:
+            raise CaptureError(str(exc)) from None
+        expected = directory / f"video.{fmt['ext']}"
+        if (not expected.is_file() or not expected.stat().st_size
+                or list(directory.glob("*.part")) or list(directory.glob("*.ytdl"))
+                or self.ydl._download_retcode):
+            raise CaptureError("Video download did not produce a complete file")
+        return expected
 
     def close(self):
         self.ydl.close()

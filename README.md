@@ -12,6 +12,8 @@ Claude Code, Codex, and other tools that read `SKILL.md` skills.
 - Writes a JSON sidecar with the source segments and raw caption/ASR data.
 - Re-running on the same video returns the existing note, so your edits
   survive. `--refresh` replaces it deliberately.
+- Optionally capture selected screenshots and save a separate, linked analysis
+  note. The current agent writes the analysis; no additional API key is needed.
 - Stops on HTTP 401/403/429, challenges, or restricted videos. It never
   retries, switches clients, uses cookies, or goes through a proxy.
 
@@ -194,6 +196,48 @@ uv run --frozen --project ~/workspace/get-youtube-transcript --extra local \
 The result JSON goes to stdout; progress goes to stderr. Exit code 0 means
 saved (or already saved), 1 means failed or stopped, 130 means cancelled.
 Each run leaves a record in `<output-dir>/_runs/`.
+
+## Screenshots and analysis
+
+Ask your agent, for example:
+
+> Save this video's transcript, inspect the dashboard demo, and save the key
+> takeaways with screenshots.
+
+The skill reads the transcript, chooses relevant moments, views the extracted
+images, and saves a separate analysis under `_analysis/VIDEO_ID.md`. The original
+transcript stays intact. Speech-only analysis does not need a video download.
+
+The underlying helper also supports two explicit commands:
+
+```sh
+# Requires a transcript previously saved by capture.py in the same output folder.
+uv run --frozen --extra local python scripts/enrich.py frames "YOUTUBE_URL" \
+  --timestamps "1:05,2:30.5,7:10"
+
+# After the agent reads the evidence and writes completed analysis JSON:
+uv run --frozen --extra local python scripts/enrich.py analyze "YOUTUBE_URL" \
+  --input /path/to/analysis.json --visuals /path/to/manifest.json
+```
+
+Both accept `--output-dir`. The frames command returns `manifest_path` and frame
+IDs, absolute paths, requested times, and actual decoded times. It needs FFmpeg,
+downloads one video stream up to 1080p, and removes the temporary video afterward.
+JPEGs and the manifest stay under `_data/VIDEO_ID/visuals/`. A few screenshots can
+still require downloading the full video. If no direct video format is usable,
+the command fails without changing the transcript.
+
+The default budget is 12 requested frames (`--max-frames`, maximum 24), and
+the default maximum width is 1024 (`--resolution`, range 256–1920). Repeating
+the same request reuses the images without network access. `frames --refresh`
+creates fresh evidence while retaining old images.
+
+The analyze command runs offline, validates the supplied JSON, and saves the
+completed note with source links, citations, and referenced images. Omit
+`--visuals` for transcript-only analysis. Existing analysis notes are preserved;
+`analyze --refresh` explicitly replaces one. Neither command refreshes or edits
+the transcript. A source refresh requires new analysis and matching visual
+evidence. See [the analysis workflow and JSON schema](references/analysis.md).
 
 ## Update and uninstall
 
