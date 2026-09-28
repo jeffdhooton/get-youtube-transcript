@@ -1,0 +1,15 @@
+[project]
+name = "get-youtube"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = ["yt-dlp[default]>=2026.3.17", "PyYAML>=6.0.2"]
+
+[project.optional-dependencies]
+local = ["mlx-whisper>=0.4.3; sys_platform == 'darwin' and platform_machine == 'arm64'"]
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[tool.pytest.ini_options]
+pythonpath = ["scripts"]
+testpaths = ["tests"]

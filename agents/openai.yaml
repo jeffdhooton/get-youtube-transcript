@@ -1,0 +1,4 @@
+interface:
+  display_name: "Get YouTube"
+  short_description: "Save YouTube transcripts with local speech fallback"
+  default_prompt: "Use $get-youtube to save this video's transcript to my vault."
