@@ -146,11 +146,21 @@ def save_analysis(url, output_dir, payload, *, visuals_path=None, refresh=False)
     directory = Path(output_dir).expanduser().resolve()
     with capture_lock(directory, vid):
         transcript_path, source_file, data = load_capture(directory, vid)
-        path = directory / "_analysis" / f"{vid}.md"
-        if path.exists() and not refresh:
-            old = read_metadata(path)
+        analysis_dir = directory / "_analysis"
+        existing = find_existing(analysis_dir, vid)
+        # Match the readable source filename. Identity lives in frontmatter,
+        # so user-renamed notes are still reused and legacy ID-only names migrate.
+        path = analysis_dir / transcript_path.name
+        if existing and existing.name != f"{vid}.md":
+            path = existing
+        if path != existing and (path.exists() or path.is_symlink()):
+            raise CaptureError("Refusing to overwrite an unrelated analysis note")
+        if existing and not refresh:
+            old = read_metadata(existing)
             if old.get("source_file") != source_file:
                 raise CaptureError("Transcript changed; use analyze --refresh to replace its analysis")
+            if existing != path:
+                existing.rename(path)
             return {"status": "existing", "path": str(path), "source_file": source_file}
         frames = {}
         if visuals_path:
@@ -171,7 +181,9 @@ def save_analysis(url, output_dir, payload, *, visuals_path=None, refresh=False)
             f.flush()
             os.fsync(f.fileno())
         path.parent.mkdir(parents=True, exist_ok=True)
-        _atomic_note(path, "---\n" + yaml.safe_dump(meta, allow_unicode=True, sort_keys=False) + "---\n" + body)
+        _atomic_note(existing or path, "---\n" + yaml.safe_dump(meta, allow_unicode=True, sort_keys=False) + "---\n" + body)
+        if existing and existing != path:
+            existing.rename(path)
         return {"status": "saved", "path": str(path), "source_file": source_file}
 
 

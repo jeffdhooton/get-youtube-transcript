@@ -205,7 +205,8 @@ Ask your agent, for example:
 > takeaways with screenshots.
 
 The skill reads the transcript, chooses relevant moments, views the extracted
-images, and saves a separate analysis under `_analysis/VIDEO_ID.md`. The original
+images, and saves a separate analysis under `_analysis/` using the same readable
+filename as the source transcript (date, channel, title, and video ID). The original
 transcript stays intact. Speech-only analysis does not need a video download.
 
 The underlying helper also supports two explicit commands:
@@ -238,6 +239,10 @@ completed note with source links, citations, and referenced images. Omit
 `analyze --refresh` explicitly replaces one. Neither command refreshes or edits
 the transcript. A source refresh requires new analysis and matching visual
 evidence. See [the analysis workflow and JSON schema](references/analysis.md).
+
+Existing ID-only analysis filenames are renamed on reuse without rewriting
+their contents. Identity is matched by video ID in frontmatter, so manually
+renamed analysis notes are also found and preserved.
 
 ## Update and uninstall
 

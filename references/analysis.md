@@ -68,7 +68,7 @@ uv run --frozen --project "$SKILL_DIR" --extra local \
   --visuals "/absolute/path/from/frames/result/manifest.json"
 ```
 
-Omit `--visuals` for transcript-only analysis. This command is entirely local and does not call an LLM. It saves `_analysis/VIDEO_ID.md`, with timestamp links, transcript link, and images referenced by key moments. Frontmatter identifies it as `agent_analysis` and links the source and analysis sidecars. It never changes the source note.
+Omit `--visuals` for transcript-only analysis. This command is entirely local and does not call an LLM. It saves a note under `_analysis/` with the same readable filename as the source transcript (date, channel, title, and video ID), with timestamp links, transcript link, and images referenced by key moments. Frontmatter identifies it as `agent_analysis` and links the source and analysis sidecars. It never changes the source note. Existing ID-only analysis filenames are renamed on reuse without rewriting their contents; manually renamed notes are found by video ID and preserved.
 
 An existing analysis is returned unchanged. To replace it for a new question or revision, use `analyze --refresh` only when requested. If the transcript was refreshed, regenerate the analysis and any screenshots against the current source; old source sidecars and images remain intact. Do not pass an old manifest with a new source capture. After successful saving, remove only the temporary input JSON you created; its contents are retained in the analysis sidecar.
 

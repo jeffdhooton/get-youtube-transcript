@@ -127,6 +127,7 @@ def test_analysis_saves_separate_linked_note_and_preserves_edits(saved):
     before = saved.read_bytes()
     result = save_analysis(URL, saved.parent, payload())
     note = Path(result["path"])
+    assert note.name == saved.name
     meta = read_metadata(note)
     assert meta["type"] == "youtube_analysis"
     assert meta["source_file"] == read_metadata(saved)["source_file"]
@@ -256,3 +257,39 @@ def test_failed_analysis_refresh_keeps_prior_note_and_sidecar(saved, monkeypatch
         enrich.save_analysis(URL, saved.parent, payload(), refresh=True)
     assert note.read_bytes() == before
     assert old_data.exists()
+
+
+def test_legacy_analysis_name_migrates_without_rewriting_edits(saved):
+    from enrich import save_analysis
+    result = save_analysis(URL, saved.parent, payload())
+    note = Path(result["path"])
+    legacy = note.parent / "abcdefghijk.md"
+    note.rename(legacy)
+    legacy.write_text(legacy.read_text() + "\nMy own notes.\n")
+    before = legacy.read_bytes()
+    result = save_analysis(URL, saved.parent, payload())
+    assert result["status"] == "existing"
+    assert Path(result["path"]).name == saved.name
+    assert Path(result["path"]).read_bytes() == before
+    assert not legacy.exists()
+
+
+def test_analysis_name_collision_never_overwrites_unrelated_note(saved):
+    from enrich import save_analysis
+    destination = saved.parent / "_analysis" / saved.name
+    destination.parent.mkdir()
+    destination.write_text("Unrelated personal note")
+    with pytest.raises(CaptureError, match="overwrite"):
+        save_analysis(URL, saved.parent, payload(), refresh=True)
+    assert destination.read_text() == "Unrelated personal note"
+
+
+def test_user_renamed_analysis_is_reused_by_video_id(saved):
+    from enrich import save_analysis
+    result = save_analysis(URL, saved.parent, payload())
+    renamed = saved.parent / "_analysis" / "My demo notes.md"
+    Path(result["path"]).rename(renamed)
+    again = save_analysis(URL, saved.parent, payload())
+    assert again["status"] == "existing"
+    assert Path(again["path"]) == renamed
+    assert len(list(renamed.parent.glob("*.md"))) == 1
